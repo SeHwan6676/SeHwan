@@ -6,8 +6,11 @@ import utils, math
 import numpy as np
 # variables 
 frame_counter =0
-CEF_COUNTER =0
-TOTAL_BLINKS =0
+CEF_COUNTER_RIGHT =0
+CEF_COUNTER_LEFT =0
+
+RIGHT_BLINKS =0
+LEFT_BLINKS =0
 # constants
 CLOSED_EYES_FRAME =3
 FONTS =cv.FONT_HERSHEY_COMPLEX
@@ -29,7 +32,7 @@ RIGHT_EYEBROW=[ 70, 63, 105, 66, 107, 55, 65, 52, 53, 46 ]
 
 map_face_mesh = mp.solutions.face_mesh
 # camera object 
-camera = cv.VideoCapture(1)
+camera = cv.VideoCapture('../VideoFile.mp4')
 # landmark detection function 
 def landmarksDetection(img, results, draw=False):
     img_height, img_width= img.shape[:2]
@@ -53,6 +56,7 @@ def blinkRatio(img, landmarks, right_indices, left_indices):
     # Right eyes 
     # horizontal line 
     rh_right = landmarks[right_indices[0]]
+    cv.circle(img, rh_right, 5, utils.MAGENTA, -1)
     rh_left = landmarks[right_indices[8]]
     # vertical line 
     rv_top = landmarks[right_indices[12]]
@@ -65,6 +69,7 @@ def blinkRatio(img, landmarks, right_indices, left_indices):
     # horizontal line 
     lh_right = landmarks[left_indices[0]]
     lh_left = landmarks[left_indices[8]]
+    cv.circle(img, lh_right, 5, utils.RED, -1)
 
     # vertical line 
     lv_top = landmarks[left_indices[12]]
@@ -76,11 +81,11 @@ def blinkRatio(img, landmarks, right_indices, left_indices):
     lvDistance = euclaideanDistance(lv_top, lv_bottom)
     lhDistance = euclaideanDistance(lh_right, lh_left)
 
-    reRatio = rhDistance/rvDistance
-    leRatio = lhDistance/lvDistance
+    right_eye_ratio = rhDistance/rvDistance
+    left_eye_ratio = lhDistance/lvDistance
 
-    ratio = (reRatio+leRatio)/2
-    return ratio 
+    # R-Ratio
+    return right_eye_ratio, left_eye_ratio
 
 
 
@@ -102,21 +107,31 @@ with map_face_mesh.FaceMesh(min_detection_confidence =0.5, min_tracking_confiden
         results  = face_mesh.process(rgb_frame)
         if results.multi_face_landmarks:
             mesh_coords = landmarksDetection(frame, results, False)
-            ratio = blinkRatio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
+            right_eye_ratio, left_eye_ratio = blinkRatio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
             # cv.putText(frame, f'ratio {ratio}', (100, 100), FONTS, 1.0, utils.GREEN, 2)
-            utils.colorBackgroundText(frame,  f'Ratio : {round(ratio,2)}', FONTS, 0.7, (30,100),2, utils.PINK, utils.YELLOW)
-
-            if ratio >5.5:
-                CEF_COUNTER +=1
+            utils.colorBackgroundText(frame,  f'Ratio : {round(right_eye_ratio,2)}', FONTS, 0.7, (30,100),2, utils.PINK, utils.YELLOW)
+            print(right_eye_ratio)
+            if right_eye_ratio >5.0:
+                CEF_COUNTER_RIGHT +=1
                 # cv.putText(frame, 'Blink', (200, 50), FONTS, 1.3, utils.PINK, 2)
                 utils.colorBackgroundText(frame,  f'Blink', FONTS, 1.7, (int(frame_height/2), 100), 2, utils.YELLOW, pad_x=6, pad_y=6, )
 
             else:
-                if CEF_COUNTER>CLOSED_EYES_FRAME:
-                    TOTAL_BLINKS +=1
-                    CEF_COUNTER =0
+                if CEF_COUNTER_RIGHT>CLOSED_EYES_FRAME:
+                    RIGHT_BLINKS +=1
+                    CEF_COUNTER_RIGHT =0
             # cv.putText(frame, f'Total Blinks: {TOTAL_BLINKS}', (100, 150), FONTS, 0.6, utils.GREEN, 2)
-            utils.colorBackgroundText(frame,  f'Total Blinks: {TOTAL_BLINKS}', FONTS, 0.7, (30,150),2)
+            if left_eye_ratio >5.0:
+                CEF_COUNTER_LEFT +=1
+                # cv.putText(frame, 'Blink', (200, 50), FONTS, 1.3, utils.PINK, 2)
+                utils.colorBackgroundText(frame,  f'Blink', FONTS, 1.7, (int(frame_height/2), 100), 2, utils.YELLOW, pad_x=6, pad_y=6, )
+
+            else:
+                if CEF_COUNTER_LEFT>CLOSED_EYES_FRAME:
+                    LEFT_BLINKS +=1
+                    CEF_COUNTER_LEFT =0
+            # cv.putText(frame, f'Total Blinks: {TOTAL_BLINKS}', (100, 150), FONTS, 0.6, utils.GREEN, 2)
+            utils.colorBackgroundText(frame,  f'R BLINKS: {RIGHT_BLINKS}  L BLINKS: {LEFT_BLINKS}', FONTS, 0.7, (30,150),2)
             
             cv.polylines(frame,  [np.array([mesh_coords[p] for p in LEFT_EYE ], dtype=np.int32)], True, utils.GREEN, 1, cv.LINE_AA)
             cv.polylines(frame,  [np.array([mesh_coords[p] for p in RIGHT_EYE ], dtype=np.int32)], True, utils.GREEN, 1, cv.LINE_AA)
